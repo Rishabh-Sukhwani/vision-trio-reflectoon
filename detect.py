@@ -1,7 +1,41 @@
 import base64
-from openai import OpenAI
+import cv2
+import numpy as np
+from mediapipe import solutions
+from sklearn.metrics.pairwise import euclidean_distances
+from similar import find_similar_face
 
-client = OpenAI()
+# Initialize MediaPipe FaceMesh
+mp_face_mesh = solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True)
+
+# Directory containing cartoon images and features
+CARTOON_DIR = "cartoon_images/"
+FEATURES_FILE = "cartoon_features.npy"
+
+# Load precomputed cartoon features
+cartoon_features = np.load(FEATURES_FILE)
+cartoon_names = [f"cartoon_{i}.png" for i in range(1, 5)]  # Assuming cartoon names are in order
+
+
+# Function to extract facial landmarks from an image
+def extract_landmarks(image):
+    results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    if results.multi_face_landmarks:
+        # Extract landmarks as a flattened array
+        landmarks = []
+        for lm in results.multi_face_landmarks[0].landmark:
+            landmarks.append([lm.x, lm.y, lm.z])
+        return np.array(landmarks).flatten()
+    return None
+
+
+# Load the input image
+input_image_path = "input_image_2.jpg"  # Replace with your image filename
+input_image = cv2.imread(input_image_path)
+
+
+
 
 # Function to encode the image
 def encode_image(image_path):
@@ -14,27 +48,4 @@ def encode_image(image_path):
 #image_path = r"C:\Users\risha\OneDrive\Pictures\Camera Roll\WIN_20250203_11_11_51_Pro.jpg"
 image_path = r"C:\Users\risha\OneDrive\Pictures\Camera Roll\WIN_20250203_11_15_24_Pro.jpg"
 
-# Getting the Base64 string
-base64_image = encode_image(image_path)
-
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": "Your job is to view the input image and choose one out of the listed cartoon characters which the person in the image resembles. You MUST choose one out of the options provided.Even if the person does not look like a character out of the given options, you MUST choose the best one that the person resembles. Answer in one word from the choices provided."},
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Which cartoon character (out of woody, buzz lightyear, wreck-it-ralph) does the person in the image most look like?",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
-                },
-            ],
-        }
-    ],
-)
-
-print(response.choices[0])
+find_similar_face(image_path=image_path)
